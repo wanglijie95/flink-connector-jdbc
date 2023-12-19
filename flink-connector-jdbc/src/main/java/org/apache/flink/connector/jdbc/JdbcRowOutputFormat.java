@@ -58,13 +58,13 @@ public class JdbcRowOutputFormat
     }
 
     private static JdbcBatchStatementExecutor<Row> createRowExecutor(
-            String sql, int[] typesArray, RuntimeContext ctx) {
+            String sql, int[] typesArray, StatementExecutorContext ctx) {
         JdbcStatementBuilder<Row> statementBuilder =
                 (st, record) -> setRecordToStatement(st, typesArray, record);
         return JdbcBatchStatementExecutor.simple(
                 sql,
                 statementBuilder,
-                ctx.getExecutionConfig().isObjectReuseEnabled() ? Row::copy : Function.identity());
+                ctx.isObjectReuseEnabled() ? Row::copy : Function.identity());
     }
 
     public static JdbcOutputFormatBuilder buildJdbcOutputFormat() {

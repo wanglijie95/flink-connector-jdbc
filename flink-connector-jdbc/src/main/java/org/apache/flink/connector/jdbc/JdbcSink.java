@@ -18,10 +18,12 @@
 package org.apache.flink.connector.jdbc;
 
 import org.apache.flink.annotation.PublicEvolving;
+import org.apache.flink.api.connector.sink2.Sink;
 import org.apache.flink.connector.jdbc.internal.GenericJdbcSinkFunction;
 import org.apache.flink.connector.jdbc.internal.JdbcOutputFormat;
 import org.apache.flink.connector.jdbc.internal.connection.SimpleJdbcConnectionProvider;
 import org.apache.flink.connector.jdbc.internal.executor.JdbcBatchStatementExecutor;
+import org.apache.flink.connector.jdbc.internal.sink2.GenericJdbcSinkV2;
 import org.apache.flink.connector.jdbc.xa.JdbcXaSinkFunction;
 import org.apache.flink.connector.jdbc.xa.XaFacade;
 import org.apache.flink.streaming.api.functions.sink.SinkFunction;
@@ -110,6 +112,21 @@ public class JdbcSink {
                         exactlyOnceOptions.isTransactionPerConnection()),
                 executionOptions,
                 exactlyOnceOptions);
+    }
+
+    /** Create a JDBC sink with the default {@link JdbcExecutionOptions}. */
+    public static <T> Sink<T> sinkV2(
+            String sql,
+            JdbcStatementBuilder<T> statementBuilder,
+            JdbcConnectionOptions connectionOptions) {
+        return new GenericJdbcSinkV2<>(
+                new JdbcOutputFormat<>(
+                        new SimpleJdbcConnectionProvider(connectionOptions),
+                        JdbcExecutionOptions.defaults(),
+                        context ->
+                                JdbcBatchStatementExecutor.simple(
+                                        sql, statementBuilder, Function.identity()),
+                        JdbcOutputFormat.RecordExtractor.identity()));
     }
 
     private JdbcSink() {}

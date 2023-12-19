@@ -156,7 +156,7 @@ class JdbcFullTest extends JdbcDataTestBase {
                                             Types.DOUBLE,
                                             Types.INTEGER
                                         },
-                                        ctx.getExecutionConfig().isObjectReuseEnabled()),
+                                        ctx.isObjectReuseEnabled()),
                         JdbcOutputFormat.RecordExtractor.identity());
 
         source.output(jdbcOutputFormat);

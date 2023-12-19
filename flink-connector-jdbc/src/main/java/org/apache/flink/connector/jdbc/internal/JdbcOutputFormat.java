@@ -21,7 +21,6 @@ package org.apache.flink.connector.jdbc.internal;
 import org.apache.flink.annotation.Internal;
 import org.apache.flink.annotation.VisibleForTesting;
 import org.apache.flink.api.common.ExecutionConfig;
-import org.apache.flink.api.common.functions.RuntimeContext;
 import org.apache.flink.api.common.io.RichOutputFormat;
 import org.apache.flink.api.common.typeinfo.TypeInformation;
 import org.apache.flink.api.common.typeutils.TypeSerializer;
@@ -69,14 +68,24 @@ public class JdbcOutputFormat<In, JdbcIn, JdbcExec extends JdbcBatchStatementExe
         extends RichOutputFormat<In> implements Flushable, InputTypeConfigurable {
 
     protected final JdbcConnectionProvider connectionProvider;
-    @Nullable private TypeSerializer<In> serializer;
+    @Nullable protected TypeSerializer<In> serializer;
+    protected boolean isObjectReuseEnabled;
 
     @Override
     @SuppressWarnings("unchecked")
     public void setInputType(TypeInformation<?> type, ExecutionConfig executionConfig) {
+        setObjectReuseEnabled(executionConfig.isObjectReuseEnabled());
         if (executionConfig.isObjectReuseEnabled()) {
             this.serializer = (TypeSerializer<In>) type.createSerializer(executionConfig);
         }
+    }
+
+    public void setSerializer(TypeSerializer<?> typeSerializer) {
+        this.serializer = (TypeSerializer<In>) typeSerializer;
+    }
+
+    public void setObjectReuseEnabled(boolean objectReuseEnabled) {
+        isObjectReuseEnabled = objectReuseEnabled;
     }
 
     /**
@@ -97,7 +106,25 @@ public class JdbcOutputFormat<In, JdbcIn, JdbcExec extends JdbcBatchStatementExe
      * @param <T> The type of instance.
      */
     public interface StatementExecutorFactory<T extends JdbcBatchStatementExecutor<?>>
-            extends SerializableFunction<RuntimeContext, T> {}
+            extends SerializableFunction<StatementExecutorContext, T> {}
+
+    public static class StatementExecutorContext {
+        private final boolean isObjectReuseEnabled;
+        private final TypeSerializer<?> typeSerializer;
+
+        public StatementExecutorContext(boolean isObjectReuseEnabled, TypeSerializer<?> typeSerializer) {
+            this.isObjectReuseEnabled = isObjectReuseEnabled;
+            this.typeSerializer = typeSerializer;
+        }
+
+        public TypeSerializer<?> getTypeSerializer() {
+            return typeSerializer;
+        }
+
+        public boolean isObjectReuseEnabled() {
+            return isObjectReuseEnabled;
+        }
+    }
 
     private static final long serialVersionUID = 1L;
 
@@ -167,7 +194,7 @@ public class JdbcOutputFormat<In, JdbcIn, JdbcExec extends JdbcBatchStatementExe
 
     private JdbcExec createAndOpenStatementExecutor(
             StatementExecutorFactory<JdbcExec> statementExecutorFactory) throws IOException {
-        JdbcExec exec = statementExecutorFactory.apply(getRuntimeContext());
+        JdbcExec exec = statementExecutorFactory.apply(new StatementExecutorContext(isObjectReuseEnabled, serializer));
         try {
             exec.prepareStatements(connectionProvider.getConnection());
         } catch (SQLException e) {
@@ -373,7 +400,7 @@ public class JdbcOutputFormat<In, JdbcIn, JdbcExec extends JdbcBatchStatementExe
                                 createSimpleRowExecutor(
                                         sql,
                                         dml.getFieldTypes(),
-                                        ctx.getExecutionConfig().isObjectReuseEnabled()),
+                                        ctx.isObjectReuseEnabled()),
                         tuple2 -> {
                             Preconditions.checkArgument(tuple2.f0);
                             return tuple2.f1;

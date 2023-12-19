@@ -74,7 +74,9 @@ class TableJdbcUpsertOutputFormat
     @Override
     public void open(int taskNumber, int numTasks) throws IOException {
         super.open(taskNumber, numTasks);
-        deleteExecutor = deleteStatementExecutorFactory.apply(getRuntimeContext());
+        deleteExecutor =
+                deleteStatementExecutorFactory.apply(
+                        new StatementExecutorContext(isObjectReuseEnabled, serializer));
         try {
             deleteExecutor.prepareStatements(connectionProvider.getConnection());
         } catch (SQLException e) {
@@ -83,7 +85,7 @@ class TableJdbcUpsertOutputFormat
     }
 
     private static JdbcBatchStatementExecutor<Row> createDeleteExecutor(
-            JdbcDmlOptions dmlOptions, RuntimeContext ctx) {
+            JdbcDmlOptions dmlOptions, StatementExecutorContext ctx) {
         int[] pkFields =
                 Arrays.stream(dmlOptions.getFieldNames())
                         .mapToInt(Arrays.asList(dmlOptions.getFieldNames())::indexOf)
@@ -150,7 +152,7 @@ class TableJdbcUpsertOutputFormat
     }
 
     private static JdbcBatchStatementExecutor<Row> createUpsertRowExecutor(
-            JdbcDmlOptions opt, RuntimeContext ctx) {
+            JdbcDmlOptions opt, StatementExecutorContext ctx) {
         checkArgument(opt.getKeyFields().isPresent());
 
         int[] pkFields =
@@ -170,7 +172,7 @@ class TableJdbcUpsertOutputFormat
                                 createSimpleRowExecutor(
                                         parseNamedStatement(sql),
                                         opt.getFieldTypes(),
-                                        ctx.getExecutionConfig().isObjectReuseEnabled()))
+                                        ctx.isObjectReuseEnabled()))
                 .orElseGet(
                         () ->
                                 new InsertOrUpdateJdbcExecutor<>(
@@ -194,7 +196,7 @@ class TableJdbcUpsertOutputFormat
                                         createRowJdbcStatementBuilder(opt.getFieldTypes()),
                                         createRowJdbcStatementBuilder(opt.getFieldTypes()),
                                         createRowKeyExtractor(pkFields),
-                                        ctx.getExecutionConfig().isObjectReuseEnabled()
+                                        ctx.isObjectReuseEnabled()
                                                 ? Row::copy
                                                 : Function.identity()));
     }

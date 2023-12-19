@@ -68,8 +68,8 @@ public class JdbcITCase extends JdbcTestBase implements JdbcITCaseBase {
         env.setRestartStrategy(new RestartStrategies.NoRestartStrategyConfiguration());
         env.setParallelism(1);
         env.fromElements(TEST_DATA)
-                .addSink(
-                        JdbcSink.sink(
+                .sinkTo(
+                        JdbcSink.sinkV2(
                                 String.format(INSERT_TEMPLATE, INPUT_TABLE),
                                 TEST_ENTRY_JDBC_STATEMENT_BUILDER,
                                 new JdbcConnectionOptionsBuilder()
@@ -99,8 +99,8 @@ public class JdbcITCase extends JdbcTestBase implements JdbcITCaseBase {
                             reused.setContent(word);
                             return reused;
                         })
-                .addSink(
-                        JdbcSink.sink(
+                .sinkTo(
+                        JdbcSink.sinkV2(
                                 JdbcTestFixture.INSERT_INTO_WORDS_TEMPLATE,
                                 (ps, e) -> {
                                     ps.setInt(1, counter.getAndIncrement());
